@@ -14,7 +14,7 @@ from ultralytics import YOLO
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
-st.title("🌿 Classificador de Doenças em Folhas com MobileNetV2 + YOLO")
+st.title("🌿 Rede Neural Convolucional  MobileNetV2 + YOLO  - Classificador de Doenças em Folhas")
 
 # Carrega os modelos CNN e YOLOv8
 @st.cache_resource
