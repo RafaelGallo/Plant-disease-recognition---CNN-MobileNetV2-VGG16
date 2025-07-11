@@ -2,8 +2,9 @@ streamlit
 tensorflow
 numpy
 pillow
-pandas
 matplotlib
 seaborn
-opencv-python-headless
+pandas
 huggingface_hub
+opencv-python-headless
+ultralytics
