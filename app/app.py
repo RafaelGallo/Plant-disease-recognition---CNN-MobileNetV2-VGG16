@@ -2,15 +2,19 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
+import matplotlib.pyplot as plt
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="centered")
-st.title("🌿 Classificador de Doenças em Folhas (Rede Neural Convolucional CNN - MobileNetV2)")
+
+# Título
+st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
 st.write("Envie uma imagem de uma folha para classificar como: **Healthy**, **Powdery** ou **Rust**.")
 
-# Carregamento do modelo da Hugging Face
+# ============
+# Modelo CNN
+# ============
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
@@ -23,55 +27,62 @@ def load_model():
 model = load_model()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Função de pré-processamento
+# ============
+# Funções
+# ============
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
     if img_array.shape[-1] == 4:
-        img_array = img_array[..., :3]  # remove canal alfa
+        img_array = img_array[..., :3]
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Função para verificar se parece ser uma folha
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Interface de envio
-option = st.radio("📷 Escolha o modo de envio da imagem:", ["Upload de imagem", "Usar câmera"])
-uploaded_file = st.file_uploader("📤 Envie uma imagem da folha", type=["jpg", "jpeg", "png"]) if option == "Upload de imagem" else st.camera_input("📸 Tire uma foto da folha")
+# ============
+# Tabs
+# ============
+aba1, aba2, aba3 = st.tabs(["📸 Classificação", "📊 Métricas do Modelo", "🧠 Modelos Utilizados"])
 
-# Processa e exibe resultado
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="📷 Imagem carregada", use_container_width=True)
+# ============
+# ABA 1 - Classificação
+# ============
+with aba1:
+    st.subheader("Envie uma imagem de folha")
 
-    processed_img = preprocess_image(image)
-    prediction = model.predict(processed_img)[0]
+    # Interface de envio
+    option = st.radio("Escolha o modo de envio:", ["Upload de imagem", "Usar câmera"])
+    uploaded_file = st.file_uploader("📤 Upload", type=["jpg", "jpeg", "png"]) if option == "Upload de imagem" else st.camera_input("📸 Tire uma foto")
 
-    if is_valid_leaf(prediction):
-        predicted_class = class_names[np.argmax(prediction)]
-        confidence = np.max(prediction)
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Imagem carregada", use_container_width=True)
 
-        st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
-        st.write(f"📊 Confiabilidade: `{confidence:.2%}`")
+        processed_img = preprocess_image(image)
+        prediction = model.predict(processed_img)[0]
 
-        st.subheader("📌 Detalhes da previsão por classe:")
-        for i, class_name in enumerate(class_names):
-            st.write(f"- {class_name}: {prediction[i]:.2%}")
+        if is_valid_leaf(prediction):
+            predicted_class = class_names[np.argmax(prediction)]
+            confidence = np.max(prediction)
 
-        # 🎯 Gráfico de barras
-        fig, ax = plt.subplots()
-        ax.bar(class_names, prediction, color='green')
-        ax.set_ylabel("Confiança")
-        ax.set_ylim(0, 1)
-        ax.set_title("Distribuição da Confiança")
-        st.pyplot(fig)
+            st.success(f"🧠 Previsão: **{predicted_class}**")
+            st.write(f"📊 Confiabilidade: `{confidence:.2%}`")
 
-    else:
-        st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara de uma folha.")
+            # Detalhamento
+            st.subheader("Detalhes por classe:")
+            for i, class_name in enumerate(class_names):
+                st.write(f"- {class_name}: {prediction[i]:.2%}")
+        else:
+            st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara.")
 
-# Bloco com métricas do modelo
-with st.expander("📊 Métricas do Modelo (MobileNetV2)", expanded=False):
+# ============
+# ABA 2 - Métricas
+# ============
+with aba2:
+    st.header("📊 Métricas do Modelo MobileNetV2")
+
     st.markdown("""
     | Métrica | Valor |
     |--------|--------|
@@ -82,4 +93,47 @@ with st.expander("📊 Métricas do Modelo (MobileNetV2)", expanded=False):
     | **Acurácia de Treinamento Final** | 97.50% |
     | **Loss de Treinamento Final** | 0.0834 |
     """)
-    st.info("Essas métricas foram obtidas com MobileNetV2 treinado em três classes: Healthy, Powdery e Rust.")
+
+    # Gráfico comparativo
+    modelos = ['MobileNetV2', 'VGG16', 'CNN Simples']
+    acuracias = [98.33, 96.25, 92.80]
+    perdas = [0.0948, 0.125, 0.158]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    largura = 0.35
+    x = np.arange(len(modelos))
+
+    ax.bar(x - largura/2, acuracias, largura, label='Acurácia (%)', color='green')
+    ax.bar(x + largura/2, perdas, largura, label='Loss', color='red')
+
+    ax.set_ylabel('Valor (%)')
+    ax.set_title('Comparativo de Acurácia e Loss')
+    ax.set_xticks(x)
+    ax.set_xticklabels(modelos)
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    st.pyplot(fig)
+
+# ============
+# ABA 3 - Descrição dos Modelos
+# ============
+with aba3:
+    st.header("📚 Modelos CNN Utilizados")
+
+    st.markdown("""
+    ### 1. MobileNetV2
+    - ✅ Rápido e leve
+    - ✅ Excelente para dispositivos móveis
+    - ✅ Acurácia: **98.33%**
+
+    ### 2. VGG16
+    - 🧱 Rede mais profunda
+    - 🔎 Requer mais memória
+    - Acurácia: **96.25%**
+
+    ### 3. CNN Simples
+    - 🔧 Modelo customizado leve
+    - ✅ Fácil de treinar e interpretar
+    - Acurácia: **92.80%**
+    """)
