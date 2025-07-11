@@ -8,6 +8,7 @@ import cv2
 import tempfile
 import os
 from PIL import Image
+from io import BytesIO
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 
@@ -30,7 +31,7 @@ def load_models():
 cnn_model, yolo_model = load_models()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Função de pré-processamento para MobileNetV2
+# Pré-processamento para MobileNetV2
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -39,11 +40,11 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Função de validação
+# Validação de confiança
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Layout com abas
+# Abas do app
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
 # =======================
@@ -59,18 +60,17 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # ✅ Lê o conteúdo da imagem uma única vez
-        file_bytes = uploaded_file.read()
-
-        # Salva a imagem temporária para o YOLOv8
+        # ✅ Converte imagem em memória e salva como JPEG válido
+        file_bytes = uploaded_file.getvalue()
         temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
-        with open(temp_path, "wb") as f:
-            f.write(file_bytes)
 
-        # Faz a inferência com o YOLOv8
+        image_pil = Image.open(BytesIO(file_bytes)).convert("RGB")
+        image_pil.save(temp_path, format="JPEG")
+
+        # YOLOv8 - detecção
         results = yolo_model(temp_path)
 
-        # Reconstrói a imagem para uso com OpenCV
+        # Reconstrói imagem para OpenCV
         img_cv_array = np.frombuffer(file_bytes, np.uint8)
         img_cv = cv2.imdecode(img_cv_array, cv2.IMREAD_COLOR)
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
