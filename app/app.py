@@ -3,12 +3,13 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from PIL import Image
 from huggingface_hub import hf_hub_download
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
-st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
+st.title("🌿 Classificador de Doenças em Folhas (Rede Neural Convolucional CNN - MobileNetV2)")
 st.write("Envie uma imagem de uma folha para classificar como: **Healthy**, **Powdery** ou **Rust**.")
 
 # Carrega modelo .h5 do Hugging Face
