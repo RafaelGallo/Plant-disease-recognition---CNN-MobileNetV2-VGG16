@@ -92,21 +92,33 @@ with tab1:
                     colors = {'Rust': (255, 0, 0), 'Healthy': (0, 255, 0), 'Powdery': (255, 165, 0)}
                     color = colors.get(predicted_class, (0, 0, 0))
 
-                    # 🔁 Legenda aprimorada com fundo
+                    # Legenda YOLO aprimorada com fundo preto semitransparente
                     label_text = f"{predicted_class} ({confidence:.2%})"
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     font_scale = 0.9
-                    thickness = 3
+                    thickness = 2
                     margin = 6
 
                     (text_width, text_height), _ = cv2.getTextSize(label_text, font, font_scale, thickness)
-                    cv2.rectangle(img_cv, (x1, y1 - text_height - 2 * margin), (x1 + text_width + 2 * margin, y1), (0, 0, 0), -1)
+
+                    bg_x1 = x1
+                    bg_y1 = max(y1 - text_height - 2 * margin, 0)
+                    bg_x2 = x1 + text_width + 2 * margin
+                    bg_y2 = y1
+
+                    # Aplica fundo com transparência
+                    overlay = img_cv.copy()
+                    cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
+                    alpha = 0.6
+                    img_cv = cv2.addWeighted(overlay, alpha, img_cv, 1 - alpha, 0)
+
+                    # Texto sobre o fundo
                     cv2.putText(img_cv, label_text, (x1 + margin, y1 - margin), font, font_scale, color, thickness, lineType=cv2.LINE_AA)
 
-                    # Desenha caixa
+                    # Desenha a caixa
                     cv2.rectangle(img_cv, (x1, y1), (x2, y2), color, 3)
 
-                    # Saída no app
+                    # Exibe previsões
                     st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
                     st.success(f"📊 Confiabilidade: `{confidence:.2%}`")
 
