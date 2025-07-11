@@ -14,7 +14,7 @@ st.write("Classifique imagens de folhas em: **Healthy**, **Powdery** ou **Rust**
 def load_model():
     model_path = hf_hub_download(
         repo_id="Gallorafael2222/plantdiseasecnn",
-        filename="models/MobileNetV2_model.keras",
+        filename="models/MobileNetV2_model.h5",
         repo_type="model"
     )
     return tf.keras.models.load_model(model_path)
