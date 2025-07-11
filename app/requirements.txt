@@ -3,3 +3,4 @@ tensorflow
 huggingface_hub
 Pillow
 numpy
+matplotlib
