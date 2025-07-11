@@ -16,9 +16,9 @@ CLASS_NAMES = ['Healthy', 'Powdery', 'Rust']
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
-        repo_id="rafaelgallogg/plant-disease-vgg16",
-        filename="VGG16_model.keras",
-        repo_type="model"
+        repo_id="Gallorafael2222/plantdiseasecnn",
+        filename="models/VGG16_model.keras",
+        repo_type="model"  # ou 'space' se for espaço; mas para modelo treinado: 'model'
     )
     return tf.keras.models.load_model(model_path)
 
