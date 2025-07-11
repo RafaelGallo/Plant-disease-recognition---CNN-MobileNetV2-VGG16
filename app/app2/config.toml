@@ -1,8 +1,0 @@
-# Plant-disease-recognition---CNN-MobileNetV2-VGG16/app/app2/.streamlit/config.toml
-
-[server]
-headless = true
-enableCORS = false
-
-[theme]
-base = "light"
