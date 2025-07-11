@@ -8,10 +8,9 @@ from huggingface_hub import hf_hub_download
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
-st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
-st.write("Envie uma imagem de uma folha para classificar como: **Healthy**, **Powdery** ou **Rust**.")
+st.title("🌿 Classificador de Doenças em Folhas com MobileNetV2")
 
-# Carregamento do modelo a partir do Hugging Face
+# Carrega modelo .h5 do Hugging Face
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
@@ -24,7 +23,7 @@ def load_model():
 model = load_model()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Pré-processamento da imagem
+# Função de pré-processamento
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -33,12 +32,12 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Verifica se parece folha
+# Valida se parece uma folha
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Tabs
-tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Arquiteturas de Modelos"])
+# Interface com abas
+tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
 # ================================
 # 📸 Aba 1: Classificador
@@ -62,9 +61,20 @@ with tab1:
             st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
             st.write(f"📊 Confiabilidade: `{confidence:.2%}`")
 
-            st.subheader("📌 Detalhes da previsão:")
+            st.subheader("📌 Detalhes da previsão por classe:")
             for i, class_name in enumerate(class_names):
                 st.write(f"- {class_name}: {prediction[i]:.2%}")
+
+            # Gráfico de barras com confiança
+            st.markdown("### 🌿 Gráfico de Confiança por Classe")
+            fig, ax = plt.subplots()
+            ax.bar(class_names, prediction, color=['green', 'orange', 'red'])
+            ax.set_ylabel('Probabilidade')
+            ax.set_ylim(0, 1)
+            ax.set_title('Distribuição da Confiança')
+            for i, v in enumerate(prediction):
+                ax.text(i, v + 0.02, f"{v:.2%}", ha='center')
+            st.pyplot(fig)
         else:
             st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara de uma folha.")
 
@@ -76,8 +86,8 @@ with tab2:
 
     data = {
         "Modelo": ["DenseNet121", "InceptionV3", "MobileNetV2", "VGG16", "ResNet50", "EfficientNetB0"],
-        "Acurácia Validação": [0.983333, 1.0, 0.966667, 0.916667, 0.616667, 0.333333],
-        "Acurácia Treino": [0.978064, 0.947806, 0.975038, 0.906959, 0.453858, 0.320726]
+        "Acurácia Validação": [0.983, 1.0, 0.967, 0.917, 0.617, 0.333],
+        "Acurácia Treino": [0.978, 0.948, 0.975, 0.907, 0.454, 0.321]
     }
     df = pd.DataFrame(data)
 
@@ -100,36 +110,21 @@ with tab2:
     st.pyplot(fig)
 
 # ================================
-# 🧠 Aba 3: Arquiteturas de Modelos
+# 🧠 Aba 3: Descrição dos Modelos CNN
 # ================================
 with tab3:
-    st.subheader("🧠 Arquiteturas de Redes Neurais Convolucionais (CNN)")
-    st.write("As CNNs são redes neurais especializadas para processar dados em forma de grade, como imagens.")
-
+    st.subheader("🧠 O que são os modelos CNN utilizados?")
     st.markdown("""
-    ### 🔹 MobileNetV2
-    - Leve, eficiente e ideal para dispositivos móveis.
-    - Utiliza blocos de convolução separáveis para melhor performance.
+As **Redes Neurais Convolucionais (CNNs)** são arquiteturas de deep learning eficazes para o reconhecimento de padrões em imagens.
 
-    ### 🔹 VGG16
-    - Arquitetura clássica com 16 camadas.
-    - Simples e eficaz, porém pesada.
+**Modelos utilizados:**
 
-    ### 🔹 ResNet50
-    - Introduz **conexões residuais** para evitar perda de gradientes.
-    - Ideal para redes profundas.
+- **MobileNetV2**: Leve e rápido, ideal para dispositivos móveis. Equilibra desempenho e eficiência.
+- **DenseNet121**: Cada camada é conectada a todas as anteriores. Reduz o problema de gradiente e melhora a reutilização de features.
+- **InceptionV3**: Usa múltiplos tamanhos de filtros em paralelo. Excelente para capturar diferentes padrões.
+- **VGG16**: Estrutura simples e profunda, com camadas convolucionais de 3x3. Boa base para transferência de aprendizado.
+- **ResNet50**: Introduz conexões residuais (atalhos) para evitar o problema do gradiente desaparecendo.
+- **EfficientNetB0**: Escala de forma equilibrada profundidade, largura e resolução. É extremamente eficiente.
 
-    ### 🔹 InceptionV3
-    - Usa múltiplos filtros de tamanhos diferentes em paralelo.
-    - Excelente para extrair padrões variados.
-
-    ### 🔹 DenseNet121
-    - Conecta todas as camadas entre si.
-    - Eficiência no fluxo de informação e gradientes.
-
-    ### 🔹 EfficientNetB0
-    - Escalonamento eficiente de profundidade, largura e resolução.
-    - Alta performance com menos parâmetros.
+Todos os modelos foram treinados com imagens de folhas em três classes: **Healthy**, **Powdery** e **Rust**.
     """)
-
-    st.info("Essas arquiteturas foram treinadas para identificar doenças em folhas nas classes: Healthy, Powdery e Rust.")
