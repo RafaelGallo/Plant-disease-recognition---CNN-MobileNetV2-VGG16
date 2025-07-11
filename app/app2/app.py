@@ -31,7 +31,7 @@ def load_models():
 cnn_model, yolo_model = load_models()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Pré-processamento para MobileNetV2
+# Função de pré-processamento para CNN
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -40,11 +40,11 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Validação de confiança
+# Verifica se a predição é confiável
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Abas do app
+# Layout com abas
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
 # =======================
@@ -60,7 +60,7 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # ✅ Converte imagem em memória e salva como JPEG válido
+        # ✅ Converte para Bytes e salva como JPEG para YOLO
         file_bytes = uploaded_file.getvalue()
         temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
 
@@ -111,7 +111,8 @@ with tab1:
         if not detected:
             st.error("❌ Nenhuma folha detectada ou confiabilidade baixa. Tente outra imagem.")
         else:
-            st.image(img_cv, caption="🖼️ Resultado com Detecção YOLO + Classificação CNN", use_container_width=True)
+            # ✅ Exibe imagem em tamanho grande
+            st.image(img_cv, caption="🖼️ Resultado com Detecção YOLO + Classificação CNN", width=900)
 
 # =======================
 # 📊 Aba 2: Métricas
