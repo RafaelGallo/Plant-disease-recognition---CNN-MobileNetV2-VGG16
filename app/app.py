@@ -9,7 +9,7 @@ st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="cen
 st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
 st.write("Classifique imagens de folhas em: **Healthy**, **Powdery** ou **Rust**.")
 
-# Baixar modelo do Hugging Face Hub com cache
+# Baixar e carregar o modelo do Hugging Face Hub
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
@@ -29,7 +29,7 @@ def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
     if img_array.shape[-1] == 4:
-        img_array = img_array[..., :3]  # remover canal alpha se existir
+        img_array = img_array[..., :3]  # Remove canal alpha se existir
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
