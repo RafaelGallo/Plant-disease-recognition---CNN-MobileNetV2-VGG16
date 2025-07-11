@@ -16,7 +16,7 @@ from ultralytics import YOLO
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
 st.title("🌿 Classificador de Doenças em Folhas com MobileNetV2 + YOLO")
 
-# Carregamento dos modelos
+# Carrega os modelos CNN e YOLOv8
 @st.cache_resource
 def load_models():
     cnn_model_path = hf_hub_download(
@@ -31,7 +31,7 @@ def load_models():
 cnn_model, yolo_model = load_models()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Função de pré-processamento para CNN
+# Pré-processamento para MobileNetV2
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -40,11 +40,11 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Verifica se a predição é confiável
+# Validação da previsão
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Layout com abas
+# Abas do app
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
 # =======================
@@ -60,7 +60,7 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # ✅ Converte para Bytes e salva como JPEG para YOLO
+        # Converte imagem e salva como JPEG
         file_bytes = uploaded_file.getvalue()
         temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
 
@@ -70,7 +70,7 @@ with tab1:
         # YOLOv8 - detecção
         results = yolo_model(temp_path)
 
-        # Reconstrói imagem para OpenCV
+        # Reconstrói imagem com OpenCV
         img_cv_array = np.frombuffer(file_bytes, np.uint8)
         img_cv = cv2.imdecode(img_cv_array, cv2.IMREAD_COLOR)
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
@@ -92,10 +92,21 @@ with tab1:
                     colors = {'Rust': (255, 0, 0), 'Healthy': (0, 255, 0), 'Powdery': (255, 165, 0)}
                     color = colors.get(predicted_class, (0, 0, 0))
 
-                    cv2.rectangle(img_cv, (x1, y1), (x2, y2), color, 3)
-                    cv2.putText(img_cv, f"{predicted_class} ({confidence:.2%})", (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+                    # 🔁 Legenda aprimorada com fundo
+                    label_text = f"{predicted_class} ({confidence:.2%})"
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 0.9
+                    thickness = 3
+                    margin = 6
 
+                    (text_width, text_height), _ = cv2.getTextSize(label_text, font, font_scale, thickness)
+                    cv2.rectangle(img_cv, (x1, y1 - text_height - 2 * margin), (x1 + text_width + 2 * margin, y1), (0, 0, 0), -1)
+                    cv2.putText(img_cv, label_text, (x1 + margin, y1 - margin), font, font_scale, color, thickness, lineType=cv2.LINE_AA)
+
+                    # Desenha caixa
+                    cv2.rectangle(img_cv, (x1, y1), (x2, y2), color, 3)
+
+                    # Saída no app
                     st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
                     st.success(f"📊 Confiabilidade: `{confidence:.2%}`")
 
@@ -111,7 +122,6 @@ with tab1:
         if not detected:
             st.error("❌ Nenhuma folha detectada ou confiabilidade baixa. Tente outra imagem.")
         else:
-            # ✅ Exibe imagem em tamanho grande
             st.image(img_cv, caption="🖼️ Resultado com Detecção YOLO + Classificação CNN", width=900)
 
 # =======================
