@@ -6,5 +6,5 @@ matplotlib
 seaborn
 pandas
 huggingface_hub
-opencv-python-headless
 ultralytics
+opencv-python-headless
