@@ -3,14 +3,15 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from PIL import Image
 from huggingface_hub import hf_hub_download
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
-st.title("🌿 Classificador de Doenças em Folhas com MobileNetV2")
+st.title("🌿 Rede Neural Convolucional (MobileNetV2) - Classificador de Doenças em Folhas")
 
-# Carrega modelo .h5 do Hugging Face
+# Carregamento do modelo
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
@@ -23,7 +24,7 @@ def load_model():
 model = load_model()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Função de pré-processamento
+# Pré-processamento da imagem
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -32,16 +33,16 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Valida se parece uma folha
+# Validação mínima de folha
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
 # Interface com abas
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
-# ================================
-# 📸 Aba 1: Classificador
-# ================================
+# ==========================
+# 📸 Aba 1 - Classificador
+# ==========================
 with tab1:
     option = st.radio("Escolha o modo de envio da imagem:", ["Upload de imagem", "Usar câmera"])
 
@@ -65,22 +66,38 @@ with tab1:
             for i, class_name in enumerate(class_names):
                 st.write(f"- {class_name}: {prediction[i]:.2%}")
 
-            # Gráfico de barras com confiança
+            # Gráfico aprimorado com Seaborn
             st.markdown("### 🌿 Gráfico de Confiança por Classe")
-            fig, ax = plt.subplots()
-            ax.bar(class_names, prediction, color=['green', 'orange', 'red'])
-            ax.set_ylabel('Probabilidade')
-            ax.set_ylim(0, 1)
-            ax.set_title('Distribuição da Confiança')
-            for i, v in enumerate(prediction):
-                ax.text(i, v + 0.02, f"{v:.2%}", ha='center')
+            df_plot = pd.DataFrame({
+                'Classe': class_names,
+                'Probabilidade': prediction
+            })
+
+            palette = {
+                'Healthy': '#2ecc71',
+                'Powdery': '#f39c12',
+                'Rust': '#e74c3c'
+            }
+
+            sns.set_style("whitegrid")
+            fig, ax = plt.subplots(figsize=(8, 5))
+            sns.barplot(data=df_plot, x='Classe', y='Probabilidade', palette=palette, ax=ax)
+
+            for i, row in df_plot.iterrows():
+                ax.text(i, row['Probabilidade'] + 0.02, f"{row['Probabilidade']:.2%}", ha='center', va='bottom', fontsize=12, weight='bold')
+
+            ax.set_ylim(0, 1.1)
+            ax.set_title("Distribuição da Confiança por Classe", fontsize=14, weight='bold')
+            ax.set_ylabel("Probabilidade")
+            ax.set_xlabel("")
             st.pyplot(fig)
+
         else:
             st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara de uma folha.")
 
-# ================================
-# 📊 Aba 2: Métricas dos Modelos
-# ================================
+# ==========================
+# 📊 Aba 2 - Métricas
+# ==========================
 with tab2:
     st.subheader("📈 Acurácia dos Modelos Testados")
 
@@ -109,9 +126,9 @@ with tab2:
     ax.legend()
     st.pyplot(fig)
 
-# ================================
-# 🧠 Aba 3: Descrição dos Modelos CNN
-# ================================
+# ==========================
+# 🧠 Aba 3 - Descrição
+# ==========================
 with tab3:
     st.subheader("🧠 O que são os modelos CNN utilizados?")
     st.markdown("""
