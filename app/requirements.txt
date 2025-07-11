@@ -1,6 +1,6 @@
 streamlit==1.26.0
 tensorflow==2.14.0
-keras==3.0.5
+keras==2.14.0
 pillow
 numpy
 huggingface_hub
