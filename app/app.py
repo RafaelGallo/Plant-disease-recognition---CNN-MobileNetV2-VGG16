@@ -1,51 +1,55 @@
 import streamlit as st
-import numpy as np
 import tensorflow as tf
+import numpy as np
 from PIL import Image
 from huggingface_hub import hf_hub_download
 
-# ============== CONFIGURAÇÃO ==============
+# Configuração da página
 st.set_page_config(page_title="🌿 Classificador de Doenças em Folhas", layout="centered")
-st.title("🌿 Classificador de Doenças em Folhas (VGG16)")
-st.caption("Classifique imagens de folhas em: Healthy, Powdery ou Rust")
 
-# ============== CLASSES ====================
-CLASS_NAMES = ['Healthy', 'Powdery', 'Rust']
+st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
+st.write("Classifique imagens de folhas nas categorias: **Healthy**, **Powdery** ou **Rust**.")
 
-# ============== FUNÇÃO DE DOWNLOAD DO MODELO ==========
+# Carregar modelo do Hugging Face com cache
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
         repo_id="Gallorafael2222/plantdiseasecnn",
-        filename="models/VGG16_model.keras",
-        repo_type="model"  # ou 'space' se for espaço; mas para modelo treinado: 'model'
+        filename="models/MobileNetV2_model.keras",
+        repo_type="model"
     )
-    return tf.keras.models.load_model(model_path)
+    return tf.keras.models.load_model(model_path, custom_objects={})  # Protege contra erro de tipo
 
 model = load_model()
 
-# ============== FUNÇÃO DE PRÉ-PROCESSAMENTO ===========
-def preprocess_image(image: Image.Image) -> np.ndarray:
-    image = image.resize((224, 224))  # VGG16 espera 224x224
-    image = np.array(image) / 255.0   # Normaliza
-    if image.shape[-1] == 4:  # Remove alpha channel, se houver
-        image = image[:, :, :3]
-    image = np.expand_dims(image, axis=0)  # Adiciona batch dimension
-    return image
+# Labels do modelo
+class_names = ['Healthy', 'Powdery', 'Rust']
 
-# ============== INTERFACE ==================
-uploaded_file = st.file_uploader("📤 Envie a imagem da folha...", type=["jpg", "jpeg", "png"])
+# Preprocessamento da imagem
+def preprocess_image(img, target_size=(224, 224)):
+    img = img.resize(target_size)
+    img_array = np.array(img)
+    if img_array.shape[-1] == 4:  # Remove canal alpha, se houver
+        img_array = img_array[..., :3]
+    img_array = img_array / 255.0  # Normalização
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
+
+# Upload de imagem
+uploaded_file = st.file_uploader("📤 Faça upload de uma imagem da folha", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="📷 Imagem carregada", use_column_width=True)
 
-    input_image = preprocess_image(image)
-    prediction = model.predict(input_image)[0]
-    predicted_class = CLASS_NAMES[np.argmax(prediction)]
-    confidence = np.max(prediction) * 100
+    processed_img = preprocess_image(image)
+    prediction = model.predict(processed_img)[0]
+    predicted_class = class_names[np.argmax(prediction)]
+    confidence = np.max(prediction)
 
-    st.markdown("---")
-    st.subheader("🔍 Resultado")
-    st.write(f"**Classe prevista:** `{predicted_class}`")
-    st.write(f"**Confiança:** `{confidence:.2f}%`")
+    st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
+    st.write(f"📊 Confiabilidade: `{confidence:.2%}`")
+
+    st.subheader("📌 Detalhes da previsão:")
+    for i, class_name in enumerate(class_names):
+        st.write(f"- {class_name}: {prediction[i]:.2%}")
