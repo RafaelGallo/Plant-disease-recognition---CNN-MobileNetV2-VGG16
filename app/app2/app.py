@@ -9,7 +9,7 @@ import tempfile
 import os
 from PIL import Image
 from io import BytesIO
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download 
 from ultralytics import YOLO
 
 # Configuração da página
@@ -31,7 +31,7 @@ def load_models():
 cnn_model, yolo_model = load_models()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Pré-processamento para MobileNetV2
+# Pré-processamento da imagem para CNN
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -40,16 +40,15 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
-# Validação da previsão
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Abas do app
+# Tabs
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
-# =======================
-# 📸 Aba 1: Classificação
-# =======================
+# ===============================
+# 📸 Aba 1 - Classificador Visual
+# ===============================
 with tab1:
     st.subheader("📷 Envie uma imagem de uma folha")
 
@@ -60,66 +59,48 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # Converte imagem e salva como JPEG
         file_bytes = uploaded_file.getvalue()
         temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
+        image.save(temp_path)
 
-        image_pil = Image.open(BytesIO(file_bytes)).convert("RGB")
-        image_pil.save(temp_path, format="JPEG")
-
-        # YOLOv8 - detecção
         results = yolo_model(temp_path)
-
-        # Reconstrói imagem com OpenCV
-        img_cv_array = np.frombuffer(file_bytes, np.uint8)
-        img_cv = cv2.imdecode(img_cv_array, cv2.IMREAD_COLOR)
+        img_cv = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
 
-        detected = False
+        detectou = False
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cropped = img_cv[y1:y2, x1:x2]
-
-                pil_cropped = Image.fromarray(cropped)
-                input_img = preprocess_image(pil_cropped)
+                input_img = preprocess_image(Image.fromarray(cropped))
 
                 prediction = cnn_model.predict(input_img)[0]
                 if is_valid_leaf(prediction):
-                    predicted_class = class_names[np.argmax(prediction)]
+                    detectou = True
+                    label = class_names[np.argmax(prediction)]
                     confidence = np.max(prediction)
 
-                    colors = {'Rust': (255, 0, 0), 'Healthy': (0, 255, 0), 'Powdery': (255, 165, 0)}
-                    color = colors.get(predicted_class, (0, 0, 0))
+                    color_map = {'Rust': (255, 0, 0), 'Healthy': (0, 255, 0), 'Powdery': (255, 165, 0)}
+                    color = color_map.get(label, (0, 0, 0))
+                    label_text = f"{label} ({confidence:.2%})"
 
-                    # Legenda YOLO aprimorada com fundo preto semitransparente
-                    label_text = f"{predicted_class} ({confidence:.2%})"
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     font_scale = 0.9
                     thickness = 2
-                    margin = 6
+                    margin = 8
+                    (w, h), _ = cv2.getTextSize(label_text, font, font_scale, thickness)
 
-                    (text_width, text_height), _ = cv2.getTextSize(label_text, font, font_scale, thickness)
+                    # fundo escuro
+                    cv2.rectangle(img_cv, (x1, y1 - h - 2 * margin), (x1 + w + 2 * margin, y1), (0, 0, 0), -1)
+                    # texto com sombra branca
+                    cv2.putText(img_cv, label_text, (x1 + margin, y1 - margin), font, font_scale, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+                    # texto principal
+                    cv2.putText(img_cv, label_text, (x1 + margin, y1 - margin), font, font_scale, color, thickness + 1, lineType=cv2.LINE_AA)
 
-                    bg_x1 = x1
-                    bg_y1 = max(y1 - text_height - 2 * margin, 0)
-                    bg_x2 = x1 + text_width + 2 * margin
-                    bg_y2 = y1
-
-                    # Aplica fundo com transparência
-                    overlay = img_cv.copy()
-                    cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), (0, 0, 0), -1)
-                    alpha = 0.6
-                    img_cv = cv2.addWeighted(overlay, alpha, img_cv, 1 - alpha, 0)
-
-                    # Texto sobre o fundo
-                    cv2.putText(img_cv, label_text, (x1 + margin, y1 - margin), font, font_scale, color, thickness, lineType=cv2.LINE_AA)
-
-                    # Desenha a caixa
                     cv2.rectangle(img_cv, (x1, y1), (x2, y2), color, 3)
 
-                    # Exibe previsões
-                    st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
+                    st.image(img_cv, caption="🖼️ Detecção YOLO + Classificação CNN", width=900)
+                    st.markdown(f"### ✅ Previsão: `{label}`")
                     st.success(f"📊 Confiabilidade: `{confidence:.2%}`")
 
                     st.markdown("### 📊 Distribuição de Confiança")
@@ -129,16 +110,30 @@ with tab1:
                     for i, v in enumerate(prediction):
                         ax.text(i, v + 0.01, f"{v:.2%}", ha='center', fontsize=10)
                     st.pyplot(fig)
-                    detected = True
 
-        if not detected:
-            st.error("❌ Nenhuma folha detectada ou confiabilidade baixa. Tente outra imagem.")
-        else:
-            st.image(img_cv, caption="🖼️ Resultado com Detecção YOLO + Classificação CNN", width=900)
+        # 🔁 Fallback automático
+        if not detectou:
+            st.warning("⚠️ Nenhuma folha detectada pela YOLO. Usando classificação direta pela CNN.")
+            input_img = preprocess_image(image)
+            prediction = cnn_model.predict(input_img)[0]
+            label = class_names[np.argmax(prediction)]
+            confidence = np.max(prediction)
 
-# =======================
-# 📊 Aba 2: Métricas
-# =======================
+            st.markdown(f"### ✅ Previsão (sem detecção): `{label}`")
+            st.success(f"📊 Confiabilidade: `{confidence:.2%}`")
+
+            fig, ax = plt.subplots()
+            sns.barplot(x=class_names, y=prediction, palette='viridis', ax=ax)
+            ax.set_ylim(0, 1)
+            for i, v in enumerate(prediction):
+                ax.text(i, v + 0.01, f"{v:.2%}", ha='center', fontsize=10)
+            st.pyplot(fig)
+
+            st.image(image, caption="🖼️ Classificação direta pela CNN (imagem completa)", use_container_width=True)
+
+# ===========================
+# 📊 Aba 2 - Métricas CNN
+# ===========================
 with tab2:
     st.subheader("📈 Acurácia dos Modelos CNN")
 
@@ -166,9 +161,9 @@ with tab2:
     ax.legend()
     st.pyplot(fig)
 
-# =======================
-# 🧠 Aba 3: Descrição
-# =======================
+# ===========================
+# 🧠 Aba 3 - Explicação CNN
+# ===========================
 with tab3:
     st.subheader("📚 O que são os Modelos CNN?")
     st.markdown("""
