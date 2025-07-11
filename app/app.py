@@ -1,11 +1,10 @@
 import streamlit as st
 import tensorflow as tf
 import numpy as np
-import pandas as pd 
-import matplotlib.pyplot as plt 
-
 from PIL import Image
 from huggingface_hub import hf_hub_download
+import matplotlib.pyplot as plt
+import io
 
 # Configuração da página
 st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="centered")
