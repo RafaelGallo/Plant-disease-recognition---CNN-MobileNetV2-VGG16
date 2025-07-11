@@ -1,7 +1,5 @@
-# Novo requirements.txt compatível com Keras 3.x
 streamlit==1.26.0
-tensorflow==2.15.0
-keras==3.0.5
+tensorflow==2.14.0
 pillow
 numpy
 huggingface_hub
