@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
 import tempfile
-import os  # ✅ novo import
+import os
 from PIL import Image
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -24,13 +24,13 @@ def load_models():
         repo_type="model"
     )
     cnn_model = tf.keras.models.load_model(cnn_model_path)
-    yolo_model = YOLO("yolov8n.pt")  # Use yolov8 customizado se desejar
+    yolo_model = YOLO("yolov8n.pt")
     return cnn_model, yolo_model
 
 cnn_model, yolo_model = load_models()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# Funções auxiliares
+# Função de pré-processamento para MobileNetV2
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -39,10 +39,11 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
+# Função de validação
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# Tabs
+# Layout com abas
 tab1, tab2, tab3 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos", "🧠 Sobre os Modelos CNN"])
 
 # =======================
@@ -58,14 +59,20 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # ✅ Salva imagem temporária de forma compatível com YOLOv8
+        # ✅ Lê o conteúdo da imagem uma única vez
+        file_bytes = uploaded_file.read()
+
+        # Salva a imagem temporária para o YOLOv8
         temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
         with open(temp_path, "wb") as f:
-            f.write(uploaded_file.read())
+            f.write(file_bytes)
 
-        # YOLOv8 - detecção
+        # Faz a inferência com o YOLOv8
         results = yolo_model(temp_path)
-        img_cv = cv2.imread(temp_path)
+
+        # Reconstrói a imagem para uso com OpenCV
+        img_cv_array = np.frombuffer(file_bytes, np.uint8)
+        img_cv = cv2.imdecode(img_cv_array, cv2.IMREAD_COLOR)
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
 
         detected = False
@@ -74,7 +81,6 @@ with tab1:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cropped = img_cv[y1:y2, x1:x2]
 
-                # Redimensiona para MobileNetV2
                 pil_cropped = Image.fromarray(cropped)
                 input_img = preprocess_image(pil_cropped)
 
@@ -83,7 +89,6 @@ with tab1:
                     predicted_class = class_names[np.argmax(prediction)]
                     confidence = np.max(prediction)
 
-                    # Caixa + texto
                     colors = {'Rust': (255, 0, 0), 'Healthy': (0, 255, 0), 'Powdery': (255, 165, 0)}
                     color = colors.get(predicted_class, (0, 0, 0))
 
