@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
 import tempfile
+import os  # ✅ novo import
 from PIL import Image
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -23,7 +24,7 @@ def load_models():
         repo_type="model"
     )
     cnn_model = tf.keras.models.load_model(cnn_model_path)
-    yolo_model = YOLO("yolov8n.pt")  # Você pode usar um modelo customizado, se tiver
+    yolo_model = YOLO("yolov8n.pt")  # Use yolov8 customizado se desejar
     return cnn_model, yolo_model
 
 cnn_model, yolo_model = load_models()
@@ -57,14 +58,14 @@ with tab1:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="🖼️ Imagem original", use_container_width=True)
 
-        # Salva imagem temporária
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.write(uploaded_file.read())
-        temp_file.flush()
+        # ✅ Salva imagem temporária de forma compatível com YOLOv8
+        temp_path = os.path.join(tempfile.gettempdir(), "uploaded_image.jpg")
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.read())
 
         # YOLOv8 - detecção
-        results = yolo_model(temp_file.name)
-        img_cv = cv2.imread(temp_file.name)
+        results = yolo_model(temp_path)
+        img_cv = cv2.imread(temp_path)
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
 
         detected = False
