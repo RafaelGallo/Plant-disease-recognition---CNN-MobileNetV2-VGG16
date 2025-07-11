@@ -1,20 +1,17 @@
 import streamlit as st
 import tensorflow as tf
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from PIL import Image
 from huggingface_hub import hf_hub_download
-import matplotlib.pyplot as plt
 
 # Configuração da página
-st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="centered")
-
-# Título
+st.set_page_config(page_title="Classificador de Doenças em Folhas", layout="wide")
 st.title("🌿 Classificador de Doenças em Folhas (MobileNetV2)")
 st.write("Envie uma imagem de uma folha para classificar como: **Healthy**, **Powdery** ou **Rust**.")
 
-# ============
-# Modelo CNN
-# ============
+# Carrega modelo .h5 do Hugging Face
 @st.cache_resource
 def load_model():
     model_path = hf_hub_download(
@@ -27,9 +24,7 @@ def load_model():
 model = load_model()
 class_names = ['Healthy', 'Powdery', 'Rust']
 
-# ============
-# Funções
-# ============
+# Função de pré-processamento
 def preprocess_image(img, target_size=(224, 224)):
     img = img.resize(target_size)
     img_array = np.array(img)
@@ -38,27 +33,28 @@ def preprocess_image(img, target_size=(224, 224)):
     img_array = img_array / 255.0
     return np.expand_dims(img_array, axis=0)
 
+# Valida se parece uma folha
 def is_valid_leaf(prediction, threshold=0.70):
     return np.max(prediction) >= threshold
 
-# ============
-# Tabs
-# ============
-aba1, aba2, aba3 = st.tabs(["📸 Classificação", "📊 Métricas do Modelo", "🧠 Modelos Utilizados"])
+# Interface com abas
+tab1, tab2 = st.tabs(["📸 Classificador", "📊 Métricas dos Modelos"])
 
-# ============
-# ABA 1 - Classificação
-# ============
-with aba1:
-    st.subheader("Envie uma imagem de folha")
+# ================================
+# 📸 Aba 1: Classificador
+# ================================
+with tab1:
+    option = st.radio("Escolha o modo de envio da imagem:", ["Upload de imagem", "Usar câmera"])
 
-    # Interface de envio
-    option = st.radio("Escolha o modo de envio:", ["Upload de imagem", "Usar câmera"])
-    uploaded_file = st.file_uploader("📤 Upload", type=["jpg", "jpeg", "png"]) if option == "Upload de imagem" else st.camera_input("📸 Tire uma foto")
+    uploaded_file = None
+    if option == "Upload de imagem":
+        uploaded_file = st.file_uploader("📤 Envie uma imagem da folha", type=["jpg", "jpeg", "png"])
+    else:
+        uploaded_file = st.camera_input("📸 Tire uma foto da folha")
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, caption="Imagem carregada", use_container_width=True)
+        st.image(image, caption="📷 Imagem carregada", use_container_width=True)
 
         processed_img = preprocess_image(image)
         prediction = model.predict(processed_img)[0]
@@ -67,73 +63,43 @@ with aba1:
             predicted_class = class_names[np.argmax(prediction)]
             confidence = np.max(prediction)
 
-            st.success(f"🧠 Previsão: **{predicted_class}**")
+            st.markdown(f"### 🧠 Previsão: `{predicted_class}`")
             st.write(f"📊 Confiabilidade: `{confidence:.2%}`")
 
-            # Detalhamento
-            st.subheader("Detalhes por classe:")
+            st.subheader("📌 Detalhes da previsão:")
             for i, class_name in enumerate(class_names):
                 st.write(f"- {class_name}: {prediction[i]:.2%}")
         else:
-            st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara.")
+            st.error("❌ A imagem enviada **não parece conter uma folha**. Por favor, envie uma imagem clara de uma folha.")
 
-# ============
-# ABA 2 - Métricas
-# ============
-with aba2:
-    st.header("📊 Métricas do Modelo MobileNetV2")
+# ================================
+# 📊 Aba 2: Métricas dos Modelos
+# ================================
+with tab2:
+    st.subheader("📈 Acurácia dos Modelos Testados")
+    
+    data = {
+        "Modelo": ["DenseNet121", "InceptionV3", "MobileNetV2", "VGG16", "ResNet50", "EfficientNetB0"],
+        "Acurácia Validação": [0.983333, 1.0, 0.966667, 0.916667, 0.616667, 0.333333],
+        "Acurácia Treino": [0.978064, 0.947806, 0.975038, 0.906959, 0.453858, 0.320726]
+    }
+    df = pd.DataFrame(data)
 
-    st.markdown("""
-    | Métrica | Valor |
-    |--------|--------|
-    | **Épocas Treinadas** | 22 |
-    | **Acurácia de Validação Final** | 96.67% |
-    | **Melhor Acurácia de Validação** | 98.33% |
-    | **Loss de Validação Final** | 0.0948 |
-    | **Acurácia de Treinamento Final** | 97.50% |
-    | **Loss de Treinamento Final** | 0.0834 |
-    """)
+    st.dataframe(df, use_container_width=True)
 
-    # Gráfico comparativo
-    modelos = ['MobileNetV2', 'VGG16', 'CNN Simples']
-    acuracias = [98.33, 96.25, 92.80]
-    perdas = [0.0948, 0.125, 0.158]
+    # Gráfico de comparação
+    st.markdown("### 📊 Comparação Gráfica de Acurácias")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    bar_width = 0.35
+    index = np.arange(len(df))
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    largura = 0.35
-    x = np.arange(len(modelos))
+    ax.bar(index, df["Acurácia Validação"], bar_width, label='Validação', color='skyblue')
+    ax.bar(index + bar_width, df["Acurácia Treino"], bar_width, label='Treino', color='lightgreen')
 
-    ax.bar(x - largura/2, acuracias, largura, label='Acurácia (%)', color='green')
-    ax.bar(x + largura/2, perdas, largura, label='Loss', color='red')
-
-    ax.set_ylabel('Valor (%)')
-    ax.set_title('Comparativo de Acurácia e Loss')
-    ax.set_xticks(x)
-    ax.set_xticklabels(modelos)
+    ax.set_xlabel('Modelos')
+    ax.set_ylabel('Acurácia')
+    ax.set_title('Acurácia de Treino vs Validação')
+    ax.set_xticks(index + bar_width / 2)
+    ax.set_xticklabels(df["Modelo"], rotation=45)
     ax.legend()
-    ax.grid(True, linestyle='--', alpha=0.3)
-
     st.pyplot(fig)
-
-# ============
-# ABA 3 - Descrição dos Modelos
-# ============
-with aba3:
-    st.header("📚 Modelos CNN Utilizados")
-
-    st.markdown("""
-    ### 1. MobileNetV2
-    - ✅ Rápido e leve
-    - ✅ Excelente para dispositivos móveis
-    - ✅ Acurácia: **98.33%**
-
-    ### 2. VGG16
-    - 🧱 Rede mais profunda
-    - 🔎 Requer mais memória
-    - Acurácia: **96.25%**
-
-    ### 3. CNN Simples
-    - 🔧 Modelo customizado leve
-    - ✅ Fácil de treinar e interpretar
-    - Acurácia: **92.80%**
-    """)
