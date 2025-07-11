@@ -7,5 +7,4 @@ seaborn
 pandas
 huggingface_hub
 ultralytics
-opencv-python
 opencv-python-headless
